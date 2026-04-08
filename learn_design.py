@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Design Reference Learner for Video Podcast Maker
-Extracts frames from videos or copies images for Claude Vision analysis.
+Extracts frames from videos or copies images for coding-agent image analysis.
 Manages a design_references/ library and user preference profiles.
 """
 import argparse
@@ -462,7 +462,7 @@ def _show_reference(ref_id, design_refs_base):
 
 def _build_parser():
     parser = argparse.ArgumentParser(
-        description="Extract design reference frames for Claude Vision analysis."
+        description="Extract design reference frames for coding-agent image analysis."
     )
     parser.add_argument(
         "inputs",
@@ -641,7 +641,7 @@ def main():
         add_reference_index(prefs, ref_id=ref_id, title=url, source_url=url, tags=[])
 
     save_prefs(prefs, prefs_path)
-    print("\nDone. Pass the frames/ directory to Claude for design analysis.")
+    print("\nDone. Pass the frames/ directory to your coding agent for design analysis.")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Video Podcast Maker — Workflow Steps Reference
 
-> **When to load:** Claude loads this file during workflow execution for detailed step instructions.
+> **When to load:** Load this file during workflow execution for detailed step instructions.
 
 ---
 
@@ -9,7 +9,7 @@
 When the user provides a reference video/image with their video creation request:
 
 1. Run extraction: `python3 learn_design.py <input>`
-2. Read extracted frames using the Read tool (Claude Vision)
+2. Read extracted frames using your agent's image/file inspection capability
 3. Analyze against design-guide.md component vocabulary
 4. Present design analysis report to user
 5. User confirms/adjusts extracted attributes
@@ -21,12 +21,13 @@ When the user provides a reference video/image with their video creation request
 
 **Agent behavior:** Auto-execute before Step 1, no user interaction needed.
 
-1. Check if `user_prefs.json` exists in `${CLAUDE_SKILL_DIR}`
-2. If not, copy from `${CLAUDE_SKILL_DIR}/user_prefs.template.json`
+1. Resolve `SKILL_DIR` to the directory containing this skill's files
+2. Check if `user_prefs.json` exists in `${SKILL_DIR}`
+3. If not, copy from `${SKILL_DIR}/user_prefs.template.json`
 3. Read preferences, **check version and migrate if needed**, then apply in subsequent steps
 
 ```bash
-SKILL_DIR="${CLAUDE_SKILL_DIR}"
+SKILL_DIR="${SKILL_DIR:-${CLAUDE_SKILL_DIR}}"
 PREFS_FILE="$SKILL_DIR/user_prefs.json"
 TEMPLATE_FILE="$SKILL_DIR/user_prefs.template.json"
 
@@ -89,7 +90,7 @@ Save to `videos/{name}/topic_definition.md`
 
 ## Step 2: Research Topic
 
-Use WebSearch and WebFetch. Save to `videos/{name}/topic_research.md`.
+Use your agent's web search and fetch capabilities. Save to `videos/{name}/topic_research.md`.
 
 ---
 
@@ -179,8 +180,8 @@ Create `videos/{name}/podcast.txt` with section markers:
 ### Script Template Selection
 
 Copy the script template based on `language`:
-- `zh-CN` → `${CLAUDE_SKILL_DIR}/templates/podcast_zh.txt`
-- `en-US` → `${CLAUDE_SKILL_DIR}/templates/podcast_en.txt`
+- `zh-CN` → `${SKILL_DIR}/templates/podcast_zh.txt`
+- `en-US` → `${SKILL_DIR}/templates/podcast_en.txt`
 
 ### Outro Text by Platform + Language
 
@@ -197,7 +198,7 @@ Copy the script template based on `language`:
 After writing `podcast.txt`, automatically run:
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
+python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
 ```
 
 Report estimated duration. If >12min or <3min, suggest adjustments.
@@ -265,15 +266,15 @@ npx remotion still src/remotion/index.ts Thumbnail3x4 videos/{name}/thumbnail_re
 
 ```bash
 # Primary command — ALWAYS pass TTS_BACKEND from user_prefs
-TTS_BACKEND=$(python3 -c "import json; print(json.load(open('${CLAUDE_SKILL_DIR}/user_prefs.json'))['global']['tts']['backend'])") \
-  python3 ${CLAUDE_SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
+TTS_BACKEND=$(python3 -c "import json; print(json.load(open('${SKILL_DIR}/user_prefs.json'))['global']['tts']['backend'])") \
+  python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
 
 # Resume from breakpoint
-TTS_BACKEND=$(python3 -c "import json; print(json.load(open('${CLAUDE_SKILL_DIR}/user_prefs.json'))['global']['tts']['backend'])") \
-  python3 ${CLAUDE_SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --resume
+TTS_BACKEND=$(python3 -c "import json; print(json.load(open('${SKILL_DIR}/user_prefs.json'))['global']['tts']['backend'])") \
+  python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --resume
 
 # Dry run (estimate duration)
-python3 ${CLAUDE_SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
+python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
 ```
 
 Backend selection via env: `TTS_BACKEND=azure|cosyvoice|edge`, rate via `TTS_RATE="+5%"`.
@@ -291,7 +292,7 @@ Set the voice via environment variable before running TTS:
 
 ```bash
 # Example for en-US with Edge TTS
-EDGE_TTS_VOICE="en-US-JennyNeural" python3 ${CLAUDE_SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
+EDGE_TTS_VOICE="en-US-JennyNeural" python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
 ```
 
 ### Phoneme Correction (SSML)
@@ -318,7 +319,7 @@ Three tiers (highest to lowest priority):
 
 ## Step 9: Create Remotion Composition + Studio Preview
 
-**Claude MUST read `references/design-guide.md` before this step.**
+**The agent MUST read `references/design-guide.md` before this step.**
 
 **Preference application:** From `user_prefs.visual` override `defaultVideoProps`:
 - `typography.*` × `scalePreference` → apply font scaling
@@ -339,17 +340,17 @@ Priority chain: Root.tsx defaults < global < topic_patterns[type] < style_profil
 
 ### Standard Video Template
 
-Use `${CLAUDE_SKILL_DIR}/templates/Video.tsx` as starting point.
+Use `${SKILL_DIR}/templates/Video.tsx` as starting point.
 
 **Shared infrastructure** — copy only if not already present:
 ```bash
-[ ! -f src/remotion/Root.tsx ] && cp ${CLAUDE_SKILL_DIR}/templates/Root.tsx src/remotion/
-[ ! -d src/remotion/components ] && cp -r ${CLAUDE_SKILL_DIR}/templates/components src/remotion/components
+[ ! -f src/remotion/Root.tsx ] && cp ${SKILL_DIR}/templates/Root.tsx src/remotion/
+[ ! -d src/remotion/components ] && cp -r ${SKILL_DIR}/templates/components src/remotion/components
 ```
 
 **Per-video composition** — NEVER overwrite `Video.tsx`. Create a unique file:
 ```bash
-cp ${CLAUDE_SKILL_DIR}/templates/Video.tsx src/remotion/{PascalCaseName}Video.tsx
+cp ${SKILL_DIR}/templates/Video.tsx src/remotion/{PascalCaseName}Video.tsx
 ```
 
 Register in `Root.tsx`. Each video gets its own composition file.
@@ -440,7 +441,7 @@ npm install @remotion/transitions @remotion/paths @remotion/shapes @remotion/med
 **Interactive mode:** Ask: pre-made MP4 (recommended) / Remotion code-generated.
 
 ```bash
-cp ${CLAUDE_SKILL_DIR}/assets/bilibili-triple-white.mp4 videos/{name}/media/
+cp ${SKILL_DIR}/assets/bilibili-triple-white.mp4 videos/{name}/media/
 ```
 
 ```tsx
@@ -467,7 +468,7 @@ npx remotion studio src/remotion/index.ts --public-dir videos/{name}/
 
 1. Launch `remotion studio` (real-time preview, hot reload)
 2. Ask user: "Studio is running at http://localhost:3000. Please review the video preview."
-3. **Review loop** — user reviews, requests changes, Claude applies them, Studio hot reloads:
+3. **Review loop** — user reviews, requests changes, the agent applies them, Studio hot reloads:
    - Layout/animation tweaks → edit components, Studio auto-refreshes
    - Script/content changes → edit `podcast.txt`, may need re-TTS (Step 8)
    - Pronunciation fixes → re-run TTS (Step 8)
@@ -478,7 +479,7 @@ npx remotion studio src/remotion/index.ts --public-dir videos/{name}/
 
 ### Visual QA (Automated, part of Step 9)
 
-> **Planned feature.** Automated still rendering and multimodal inspection is not yet implemented. Currently, visual quality is verified manually via Remotion Studio preview. Claude may offer to render section stills for manual inspection if requested.
+> **Planned feature.** Automated still rendering and multimodal inspection is not yet implemented. Currently, visual quality is verified manually via Remotion Studio preview. The agent may offer to render section stills for manual inspection if requested.
 
 ---
 
@@ -527,7 +528,7 @@ The vertical composition reuses Video.tsx with `orientation: "vertical"`. All co
 
 ```bash
 # Default: auto-selected track
-cp ${CLAUDE_SKILL_DIR}/assets/{selected-track}.mp3 videos/{name}/bgm.mp3
+cp ${SKILL_DIR}/assets/{selected-track}.mp3 videos/{name}/bgm.mp3
 
 # Or user's custom BGM
 cp /path/to/user-bgm.mp3 videos/{name}/bgm.mp3

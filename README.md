@@ -115,7 +115,7 @@ pip install azure-cognitiveservices-speech dashscope edge-tts requests
 | Component | Source | Purpose |
 |-----------|--------|---------|
 | **Remotion Project** | `npx create-video` | Base framework with `src/`, `public/`, `package.json` |
-| **video-podcast-maker** | Claude Code skill | Workflow orchestration (this skill) |
+| **video-podcast-maker** | SKILL.md workflow | Workflow orchestration (this skill) |
 
 ```bash
 # Step 1: Create a new Remotion project (base framework)
@@ -191,11 +191,11 @@ Then reload: `source ~/.zshrc`
 
 ### Usage
 
-This skill is designed for use with [Claude Code](https://claude.ai/claude-code) or [Opencode](https://github.com/opencode-ai/opencode). Simply tell Claude:
+This skill is designed for use with coding agents that support `SKILL.md`, including [Claude Code](https://claude.ai/claude-code), [Codex](https://openai.com/index/introducing-codex/), and [OpenCode](https://github.com/opencode-ai/opencode). Simply tell your agent:
 
 > "Create a video podcast about [your topic]"
 
-Claude will guide you through the entire workflow automatically.
+The agent will guide you through the entire workflow automatically.
 
 > **Tips:** The quality of first-generation output heavily depends on the model's intelligence and capabilities — the smarter and more advanced the model, the better the results. In our testing, both Codex and Claude Code produce excellent videos on the first try, and OpenCode paired with GLM-5 also delivers solid results. If the initial output isn't perfect, you can preview it in Remotion Studio and ask the coding agent to keep refining until you're satisfied.
 
@@ -270,7 +270,7 @@ Included tracks in `assets/`:
 - [x] Resume from breakpoint (`--resume` flag)
 - [x] Dry-run mode (`--dry-run` for duration estimation)
 - [x] User preference self-evolution (auto-learns visual/TTS/content style preferences)
-- [x] Refactor to latest Claude Code SKILL spec (`references/` layered docs, `${CLAUDE_SKILL_DIR}` variable, `argument-hint`/`effort`/`allowed-tools` frontmatter fields)
+- [x] Refactor skill docs for portable `SKILL.md` usage across Claude Code, Codex, OpenCode, and OpenClaw
 - [x] Design learning system — Learn design styles from reference videos/images, build a design reference library and reusable style profiles
 - [ ] Playwright auto-capture — Analyze Bilibili/YouTube video design styles directly via URL (Phase 4)
 - [ ] Step 9 smart suggestions — Auto-match and recommend existing style profiles when creating videos (Phase 5)

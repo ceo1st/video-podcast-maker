@@ -5,10 +5,19 @@ These are template files for creating Remotion video projects. Copy them to your
 ## Usage
 
 ```bash
+# Resolve the skill directory first.
+# Example: export SKILL_DIR=/path/to/video-podcast-maker
+
 # Copy all templates to your Remotion project
-cp ~/.claude/skills/video-podcast-maker/templates/*.tsx src/remotion/
-cp -r ~/.claude/skills/video-podcast-maker/templates/components src/remotion/components
-cp ~/.claude/skills/video-podcast-maker/templates/podcast.txt videos/{name}/
+cp "${SKILL_DIR}"/templates/*.tsx src/remotion/
+cp -r "${SKILL_DIR}"/templates/components src/remotion/components
+cp "${SKILL_DIR}"/templates/podcast.txt videos/{name}/
+```
+
+If your agent provides a built-in skill path variable such as `${CLAUDE_SKILL_DIR}`, map it first:
+
+```bash
+export SKILL_DIR="${SKILL_DIR:-${CLAUDE_SKILL_DIR}}"
 ```
 
 ## Files

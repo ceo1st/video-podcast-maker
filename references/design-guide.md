@@ -1,6 +1,6 @@
 # Video Podcast Maker — Design Guide
 
-> **When to load:** Claude loads this file when working on Step 9 (Remotion composition) or when the user asks about visual design.
+> **When to load:** Load this file when working on Step 9 (Remotion composition) or when the user asks about visual design.
 
 ---
 
@@ -44,7 +44,7 @@ Hard constraints for 1080p design space — prevents small text and empty layout
 
 ## Design Philosophy
 
-Templates (`templates/`) are **starting points, not blueprints**. Claude SHOULD customize visual design per video topic:
+Templates (`templates/`) are **starting points, not blueprints**. The agent SHOULD customize visual design per video topic:
 
 - **Color palette**: match the subject (tech → cool blues/grays, food → warm tones, finance → dark/gold)
 - **Section layouts**: create new component arrangements, don't repeat the same layout
@@ -126,7 +126,7 @@ Thumbnails render at ~300px in feeds. Only bold, oversized elements survive at t
 
 ## Visual Design Reference (recommended)
 
-Production-verified sizes as recommended reference. Claude may adjust freely but MUST NOT go below Minimums.
+Production-verified sizes as recommended reference. The agent may adjust freely but MUST NOT go below Minimums.
 
 ### Typography Scale (1080p design space)
 
@@ -229,7 +229,7 @@ Every section SHOULD include at least one animated background layer for depth. A
 
 ## Section Layout Presets (SHOULD use)
 
-Pre-built layouts from `SectionLayouts.tsx` — Claude SHOULD pick from these before creating custom layouts. Each includes animated backgrounds, proper spacing, and theme integration.
+Pre-built layouts from `SectionLayouts.tsx` — the agent SHOULD pick from these before creating custom layouts. Each includes animated backgrounds, proper spacing, and theme integration.
 
 | Layout | Visual | Best For |
 |--------|--------|----------|
@@ -291,7 +291,7 @@ Plus existing components: `ComparisonCard`, `Timeline`, `CodeBlock`, `QuoteBlock
 
 ### Layout Sequencing Rules (MUST follow)
 
-Claude MUST vary layouts across sections. Follow these rules to prevent visual monotony:
+The agent MUST vary layouts across sections. Follow these rules to prevent visual monotony:
 
 | Rule | Requirement |
 |------|-------------|

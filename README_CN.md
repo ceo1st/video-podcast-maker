@@ -114,7 +114,7 @@ pip install azure-cognitiveservices-speech dashscope edge-tts requests
 | 组件 | 来源 | 作用 |
 |------|------|------|
 | **Remotion 项目** | `npx create-video` | 基础框架，包含 `src/`、`public/`、`package.json` |
-| **video-podcast-maker** | Claude Code skill | 工作流编排（本技能） |
+| **video-podcast-maker** | SKILL.md 工作流 | 工作流编排（本技能） |
 
 ```bash
 # 第一步：创建 Remotion 项目（基础框架）
@@ -190,11 +190,11 @@ export GEMINI_API_KEY="your-gemini-api-key"
 
 ### 使用方法
 
-本技能专为 [Claude Code](https://claude.ai/claude-code) 或 [Opencode](https://github.com/opencode-ai/opencode) 设计。只需告诉 Claude：
+本技能适用于支持 `SKILL.md` 的 coding agent，包括 [Claude Code](https://claude.ai/claude-code)、[Codex](https://openai.com/index/introducing-codex/) 和 [OpenCode](https://github.com/opencode-ai/opencode)。只需告诉你的 agent：
 
 > "帮我制作一个关于 [你的主题] 的视频播客"
 
-Claude 会自动引导你完成整个流程。
+agent 会自动引导你完成整个流程。
 
 > **提示：** 经过多次测试，初次生成的效果和模型效果有很大的关系，模型越智能越先进，生成的效果会越好。目前初次生成 Codex 和 Claude Code 生成的视频效果都不错，OpenCode 搭配 GLM-5 也还不错。如果第一次生成的不够好，可以在 Remotion Studio 预览，并让 coding agent 继续修改。
 
@@ -270,7 +270,7 @@ videos/{视频名称}/
 - [x] 预估模式（`--dry-run` 预估时长，不调用 API）
 - [x] 用户偏好自我进化（自动学习视觉/TTS/内容风格偏好）
 - [x] 视觉检查 - 对生成后的页面进行视觉检查，检查其美观性、布局合理性等
-- [x] 重构为 Claude Code 最新 SKILL 规范（`references/` 分层、`${CLAUDE_SKILL_DIR}` 变量、`argument-hint`/`effort`/`allowed-tools` 等新 frontmatter 字段）
+- [x] 将技能文档重构为可被 Claude Code、Codex、OpenCode、OpenClaw 共同使用的 `SKILL.md` 工作流
 - [x] 设计学习系统 — 从参考视频/图片中学习设计风格，构建设计参考库和可复用的风格档案
 - [ ] Playwright 自动抓取 — 通过 URL 直接分析 B站/YouTube 视频设计风格（Phase 4）
 - [ ] Step 9 智能推荐 — 制作视频时自动匹配并推荐已有风格档案（Phase 5）
