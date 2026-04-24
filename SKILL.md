@@ -92,11 +92,11 @@ profiles create <name>   # Create a new style profile interactively
 
 ### Pre-Workflow Usage
 
-When the user provides a reference video or image alongside a video creation request, extract design patterns before Step 1 and apply them as session overrides. See `references/workflow-steps.md` → Pre-workflow section for the full extraction flow.
+When the user provides a reference video or image alongside a video creation request, extract design patterns before Step 1 and apply them as session overrides. See `references/workflow-script.md` → Pre-workflow section for the full extraction flow.
 
 ### Step 9 Integration
 
-Before choosing visual design in Step 9, check for matching style profiles or reference library entries. Apply the best match as a starting point for Remotion composition props. See `references/workflow-steps.md` → Step 9 Style Profile Integration for the priority chain.
+Before choosing visual design in Step 9, check for matching style profiles or reference library entries. Apply the best match as a starting point for Remotion composition props. See `references/workflow-production.md` → Step 9 Style Profile Integration for the priority chain.
 
 ---
 
@@ -226,7 +226,10 @@ Hard constraints for video production. Visual design remains the agent's creativ
 
 Load these files on demand — **do NOT load all at once**:
 
-- **[references/workflow-steps.md](references/workflow-steps.md)**: Detailed step-by-step instructions (Steps 1-14). Load at workflow start.
+- **[references/workflow-steps.md](references/workflow-steps.md)**: Index of the 14-step workflow split across three phase files. Load at workflow start to locate which phase file to pull:
+  - **[workflow-script.md](references/workflow-script.md)** — Pre-workflow + Startup + Steps 1-4 (scripting)
+  - **[workflow-production.md](references/workflow-production.md)** — Steps 5-11 (media, TTS, Remotion, render, BGM)
+  - **[workflow-publish.md](references/workflow-publish.md)** — Steps 12-15 (subtitles, publish, cleanup, shorts)
 - **[references/design-guide.md](references/design-guide.md)**: Visual minimums, typography, layout patterns, checklists. **MUST load before Step 9.**
 - **[references/troubleshooting.md](references/troubleshooting.md)**: Error fixes, BGM options, preference commands, preference learning. Load on error or user request.
 - **[examples/](examples/)**: Real production video projects. The agent may reference these for composition structure and `timing.json` format.
