@@ -282,7 +282,7 @@ def load_report(ref_dir):
 
 def _load_template():
     """Load user_prefs.template.json as default structure."""
-    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_prefs.template.json")
+    template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "user_prefs.template.json")
     if os.path.exists(template_path):
         with open(template_path, encoding="utf-8") as f:
             return json.load(f)
@@ -508,8 +508,8 @@ def main():
     parser = _build_parser()
     args = parser.parse_args()
 
-    # Locate prefs file (project root, same as user_prefs.json)
-    prefs_path = os.path.join(os.path.dirname(__file__), "user_prefs.json")
+    # Locate prefs file at skill root (one level above scripts/)
+    prefs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "user_prefs.json")
     prefs = load_prefs(prefs_path)
 
     output_dir = args.output_dir

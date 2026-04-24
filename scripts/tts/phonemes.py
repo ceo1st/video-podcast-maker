@@ -14,7 +14,8 @@ def load_phoneme_dicts(input_file, phoneme_file=None):
 
     Global and project-level are merged; project entries override global.
     """
-    SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # scripts/tts/phonemes.py → skill root is three levels up
+    SKILL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     global_path = os.path.join(SKILL_DIR, 'phonemes.json')
     template_path = os.path.join(SKILL_DIR, 'phonemes.template.json')
     project_path = os.path.join(os.path.dirname(os.path.abspath(input_file)), 'phonemes.json')
