@@ -181,6 +181,23 @@ The full [Lucide icon library](https://lucide.dev/icons/) (1500+ icons) is avail
 - Prefer specific icons over generic ones (e.g., `shield-check` over `check` for "security verified")
 - Each card/section in a group should use a **different** icon — never repeat icons in parallel items
 
+### Brand Logos for AI / LLM Topics
+
+When the video topic involves specific AI companies, LLM models, or developer tools, use `@lobehub/icons` for **official brand logos** (OpenAI, Anthropic, Google, Meta, Mistral, Cohere, Hugging Face, LangChain, etc.). Lucide covers generic concepts; lobehub covers the brand mark itself.
+
+**Install (in the Remotion project root, not in `videos/{name}/`):**
+
+```bash
+npm i @lobehub/icons
+```
+
+**Upstream agent guidance:** read https://lobehub.com/icons/skill.md for the current import pattern and component API. The package evolves independently — always check the upstream skill doc rather than relying on cached examples here.
+
+**When to use which:**
+- Concept icon (shield, brain, zap) → Lucide
+- Brand mark (the OpenAI logo, the Claude logo) → lobehub
+- Never use both redundantly for the same item (e.g., a card titled "OpenAI" needs only the lobehub OpenAI mark, not lobehub + Lucide `sparkles`)
+
 ### Layout Patterns (recommended)
 
 | Pattern | Recommended |
