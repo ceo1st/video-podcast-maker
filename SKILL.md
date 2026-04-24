@@ -61,16 +61,16 @@ Extract visual design patterns from reference videos or images, store them in a 
 
 ```bash
 # Learn from images (use your agent's image analysis capability to analyze design patterns)
-python3 learn_design.py ./screenshot1.png ./screenshot2.png
+python3 scripts/learn_design.py ./screenshot1.png ./screenshot2.png
 
 # Learn from a local video (ffmpeg extracts frames automatically)
-python3 learn_design.py ./reference.mp4
+python3 scripts/learn_design.py ./reference.mp4
 
 # Learn from a URL (Playwright captures screenshots — experimental)
-python3 learn_design.py https://www.bilibili.com/video/BV1xx411c7mD
+python3 scripts/learn_design.py https://www.bilibili.com/video/BV1xx411c7mD
 
 # Save with a named profile and tags
-python3 learn_design.py ./reference.mp4 --profile "tech-minimal" --tags "tech,minimal,dark"
+python3 scripts/learn_design.py ./reference.mp4 --profile "tech-minimal" --tags "tech,minimal,dark"
 ```
 
 ### Reference Library Commands

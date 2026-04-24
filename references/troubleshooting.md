@@ -290,7 +290,7 @@ Color values from image analysis are approximate. After reviewing the report:
 ### Style profile not applied
 
 Check priority chain: `style_profiles` only override when explicitly specified by name.
-Verify: `python3 learn_design.py --list` shows the reference exists.
+Verify: `python3 scripts/learn_design.py --list` shows the reference exists.
 Verify: `user_prefs.json` → `style_profiles` → your profile name exists with correct props_override.
 
 ### Orphaned references (deleted directory but still in index)

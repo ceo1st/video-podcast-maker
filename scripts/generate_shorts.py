@@ -241,7 +241,7 @@ def render_short(output_dir, comp_id, index_path):
 def main():
     parser = argparse.ArgumentParser(
         description='Generate vertical short video assets from podcast sections',
-        epilog='Example: python3 generate_shorts.py --input-dir videos/how-llms-work/ --title "LLM\u5de5\u4f5c\u539f\u7406"'
+        epilog='Example: python3 scripts/generate_shorts.py --input-dir videos/how-llms-work/ --title "LLM\u5de5\u4f5c\u539f\u7406"'
     )
     parser.add_argument('--input-dir', required=True,
                         help='Video directory containing timing.json and podcast_audio.wav')

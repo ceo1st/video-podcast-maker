@@ -8,7 +8,7 @@
 
 When the user provides a reference video/image with their video creation request:
 
-1. Run extraction: `python3 learn_design.py <input>`
+1. Run extraction: `python3 scripts/learn_design.py <input>`
 2. Read extracted frames using your agent's image/file inspection capability
 3. Analyze against design-guide.md component vocabulary
 4. Present design analysis report to user
@@ -198,7 +198,7 @@ Copy the script template based on `language`:
 After writing `podcast.txt`, automatically run:
 
 ```bash
-python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
+python3 ${SKILL_DIR}/scripts/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
 ```
 
 Report estimated duration. If >12min or <3min, suggest adjustments.
@@ -267,14 +267,14 @@ npx remotion still src/remotion/index.ts Thumbnail3x4 videos/{name}/thumbnail_re
 ```bash
 # Primary command — ALWAYS pass TTS_BACKEND from user_prefs
 TTS_BACKEND=$(python3 -c "import json; print(json.load(open('${SKILL_DIR}/user_prefs.json'))['global']['tts']['backend'])") \
-  python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
+  python3 ${SKILL_DIR}/scripts/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
 
 # Resume from breakpoint
 TTS_BACKEND=$(python3 -c "import json; print(json.load(open('${SKILL_DIR}/user_prefs.json'))['global']['tts']['backend'])") \
-  python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --resume
+  python3 ${SKILL_DIR}/scripts/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --resume
 
 # Dry run (estimate duration)
-python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
+python3 ${SKILL_DIR}/scripts/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name} --dry-run
 ```
 
 Backend selection via env: `TTS_BACKEND=azure|cosyvoice|edge`, rate via `TTS_RATE="+5%"`.
@@ -292,7 +292,7 @@ Set the voice via environment variable before running TTS:
 
 ```bash
 # Example for en-US with Edge TTS
-EDGE_TTS_VOICE="en-US-JennyNeural" python3 ${SKILL_DIR}/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
+EDGE_TTS_VOICE="en-US-JennyNeural" python3 ${SKILL_DIR}/scripts/generate_tts.py --input videos/{name}/podcast.txt --output-dir videos/{name}
 ```
 
 ### Phoneme Correction (SSML)
@@ -510,8 +510,8 @@ The vertical composition reuses Video.tsx with `orientation: "vertical"`. All co
 
 **Platform-specific video format notes:**
 - **xiaohongshu**: Primarily short-form vertical content. Long-form horizontal video is optional.
-- **douyin**: Vertical shorts only (9:16). No horizontal long-form video generated. Uses existing `generate_shorts.py` pipeline.
-- **weixin-channels**: Vertical shorts only (9:16). No horizontal long-form video generated. Uses existing `generate_shorts.py` pipeline.
+- **douyin**: Vertical shorts only (9:16). No horizontal long-form video generated. Uses existing `scripts/generate_shorts.py` pipeline.
+- **weixin-channels**: Vertical shorts only (9:16). No horizontal long-form video generated. Uses existing `scripts/generate_shorts.py` pipeline.
 
 ---
 
@@ -703,7 +703,7 @@ echo "  video_with_bgm.mp4 — render with BGM, no subtitles"
 ### Generate shorts from sections
 
 ```bash
-python3 generate_shorts.py --input-dir videos/{name}/ --title "视频标题"
+python3 ${SKILL_DIR}/scripts/generate_shorts.py --input-dir videos/{name}/ --title "视频标题"
 ```
 
 This produces `videos/{name}/shorts/{section_name}/` for each qualifying section (>20s, not hero/outro) with:
