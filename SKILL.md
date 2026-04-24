@@ -133,9 +133,9 @@ fi
 
 ## Prerequisites Check
 
-!`( missing=""; node -v >/dev/null 2>&1 || missing="$missing node"; python3 --version >/dev/null 2>&1 || missing="$missing python3"; ffmpeg -version >/dev/null 2>&1 || missing="$missing ffmpeg"; [ -n "$AZURE_SPEECH_KEY" ] || missing="$missing AZURE_SPEECH_KEY"; if [ -n "$missing" ]; then echo "MISSING:$missing"; else echo "ALL_OK"; fi )`
+!`( BACKEND="${TTS_BACKEND:-edge}"; missing=""; node -v >/dev/null 2>&1 || missing="$missing node"; python3 --version >/dev/null 2>&1 || missing="$missing python3"; ffmpeg -version >/dev/null 2>&1 || missing="$missing ffmpeg"; case "$BACKEND" in azure) [ -n "$AZURE_SPEECH_KEY" ] || missing="$missing AZURE_SPEECH_KEY" ;; doubao) { [ -n "$VOLCENGINE_APPID" ] && [ -n "$VOLCENGINE_ACCESS_TOKEN" ]; } || missing="$missing VOLCENGINE_APPID+ACCESS_TOKEN" ;; cosyvoice) [ -n "$DASHSCOPE_API_KEY" ] || missing="$missing DASHSCOPE_API_KEY" ;; elevenlabs) [ -n "$ELEVENLABS_API_KEY" ] || missing="$missing ELEVENLABS_API_KEY" ;; openai) [ -n "$OPENAI_API_KEY" ] || missing="$missing OPENAI_API_KEY" ;; google) [ -n "$GOOGLE_TTS_API_KEY" ] || missing="$missing GOOGLE_TTS_API_KEY" ;; esac; if [ -n "$missing" ]; then echo "MISSING:$missing (backend=$BACKEND)"; else echo "ALL_OK (backend=$BACKEND)"; fi )`
 
-**If MISSING reported above**, see README.md for full setup instructions (install commands, API key setup, Remotion project init).
+**If MISSING reported above**, see README.md for full setup instructions (install commands, API key setup, Remotion project init). The check is backend-aware: only the env vars required by the currently selected `TTS_BACKEND` (default: `edge`, free, no key) are validated.
 
 ---
 
