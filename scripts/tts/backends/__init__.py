@@ -4,8 +4,8 @@ import os
 import sys
 
 
-def _user_prefs_voice(backend_name):
-    """Read voice for backend from user_prefs.json. Returns None if missing/unreadable."""
+def _user_prefs_get(*keys):
+    """Read nested key from user_prefs.json. Returns None if missing/unreadable."""
     # __file__ = scripts/tts/backends/__init__.py → skill root is four levels up
     skill_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     prefs_path = os.path.join(skill_dir, 'user_prefs.json')
@@ -13,18 +13,36 @@ def _user_prefs_voice(backend_name):
         return None
     try:
         with open(prefs_path) as f:
-            prefs = json.load(f)
-        return prefs.get('global', {}).get('tts', {}).get('voices', {}).get(backend_name)
+            obj = json.load(f)
+        for k in keys:
+            if not isinstance(obj, dict):
+                return None
+            obj = obj.get(k)
+        return obj
     except (json.JSONDecodeError, OSError):
         return None
 
 
+def resolve_backend():
+    """Resolve TTS backend with precedence: env TTS_BACKEND > user_prefs.json > 'edge'.
+
+    Returns (name, source) where source is 'env', 'user_prefs', or 'default'.
+    """
+    env = os.environ.get('TTS_BACKEND')
+    if env:
+        return env, 'env'
+    pref = _user_prefs_get('global', 'tts', 'backend')
+    if pref:
+        return pref, 'user_prefs'
+    return 'edge', 'default'
+
+
 def _resolve_voice(backend_name, env_var, default):
     """Resolve voice with precedence: env var > user_prefs.json > hardcoded default."""
-    voice = os.environ.get(env_var) or _user_prefs_voice(backend_name) or default
-    source = ('env' if os.environ.get(env_var)
-              else 'user_prefs' if _user_prefs_voice(backend_name)
-              else 'default')
+    env_val = os.environ.get(env_var)
+    pref_val = _user_prefs_get('global', 'tts', 'voices', backend_name)
+    voice = env_val or pref_val or default
+    source = 'env' if env_val else 'user_prefs' if pref_val else 'default'
     print(f"  Voice ({backend_name}): {voice} [from {source}]")
     return voice
 

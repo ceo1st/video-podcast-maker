@@ -94,9 +94,9 @@ fi
 
 ## Prerequisites Check
 
-!`( BACKEND="${TTS_BACKEND:-edge}"; missing=""; node -v >/dev/null 2>&1 || missing="$missing node"; python3 --version >/dev/null 2>&1 || missing="$missing python3"; ffmpeg -version >/dev/null 2>&1 || missing="$missing ffmpeg"; case "$BACKEND" in azure) [ -n "$AZURE_SPEECH_KEY" ] || missing="$missing AZURE_SPEECH_KEY" ;; doubao) { [ -n "$VOLCENGINE_APPID" ] && [ -n "$VOLCENGINE_ACCESS_TOKEN" ]; } || missing="$missing VOLCENGINE_APPID+ACCESS_TOKEN" ;; cosyvoice) [ -n "$DASHSCOPE_API_KEY" ] || missing="$missing DASHSCOPE_API_KEY" ;; elevenlabs) [ -n "$ELEVENLABS_API_KEY" ] || missing="$missing ELEVENLABS_API_KEY" ;; openai) [ -n "$OPENAI_API_KEY" ] || missing="$missing OPENAI_API_KEY" ;; google) [ -n "$GOOGLE_TTS_API_KEY" ] || missing="$missing GOOGLE_TTS_API_KEY" ;; esac; if [ -n "$missing" ]; then echo "MISSING:$missing (backend=$BACKEND)"; else echo "ALL_OK (backend=$BACKEND)"; fi )`
+!`( BACKEND="$(python3 "${SKILL_DIR}/scripts/resolve_backend.py" 2>/dev/null || echo "${TTS_BACKEND:-edge}")"; missing=""; node -v >/dev/null 2>&1 || missing="$missing node"; python3 --version >/dev/null 2>&1 || missing="$missing python3"; ffmpeg -version >/dev/null 2>&1 || missing="$missing ffmpeg"; case "$BACKEND" in azure) [ -n "$AZURE_SPEECH_KEY" ] || missing="$missing AZURE_SPEECH_KEY" ;; doubao) { [ -n "$VOLCENGINE_APPID" ] && [ -n "$VOLCENGINE_ACCESS_TOKEN" ]; } || missing="$missing VOLCENGINE_APPID+ACCESS_TOKEN" ;; cosyvoice) [ -n "$DASHSCOPE_API_KEY" ] || missing="$missing DASHSCOPE_API_KEY" ;; elevenlabs) [ -n "$ELEVENLABS_API_KEY" ] || missing="$missing ELEVENLABS_API_KEY" ;; openai) [ -n "$OPENAI_API_KEY" ] || missing="$missing OPENAI_API_KEY" ;; google) [ -n "$GOOGLE_TTS_API_KEY" ] || missing="$missing GOOGLE_TTS_API_KEY" ;; esac; if [ -n "$missing" ]; then echo "MISSING:$missing (backend=$BACKEND)"; else echo "ALL_OK (backend=$BACKEND)"; fi )`
 
-**If MISSING reported above**, see README.md for full setup instructions (install commands, API key setup, Remotion project init). The check is backend-aware: only the env vars required by the currently selected `TTS_BACKEND` (default: `edge`, free, no key) are validated.
+**If MISSING reported above**, see README.md for full setup instructions (install commands, API key setup, Remotion project init). The check is backend-aware: backend is resolved as `TTS_BACKEND` env var → `user_prefs.json` (`global.tts.backend`) → `edge` default, then only env vars required by that backend are validated.
 
 ---
 
@@ -270,6 +270,7 @@ At Step 1 start:
  2. Research topic → topic_research.md
  3. Design video sections (5-7 chapters)
  4. Write narration script → podcast.txt
+ 4.5. Pronunciation pre-flight (zh-CN only) → videos/{name}/phonemes.json
  5. Collect media assets → media_manifest.json
  6. Generate publish info (Part 1) → publish_info.md
  7. Generate thumbnails (16:9 + 4:3) → thumbnail_*.png

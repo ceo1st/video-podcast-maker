@@ -221,3 +221,97 @@ python3 ${SKILL_DIR}/scripts/generate_tts.py --input videos/{name}/podcast.txt -
 ```
 
 Report estimated duration. If >12min or <3min, suggest adjustments.
+
+---
+
+## Step 4.5: Pronunciation Pre-Flight (zh-CN only)
+
+**Skip if `user_prefs.global.language != "zh-CN"`.**
+
+**Why an LLM step, not code:** Polyphone disambiguation needs sentence-level context (`一行` → `háng` for "a line", `xíng` for "execute"). A regex or static dict can't substitute for reading the script. The `phonemes.json` system is the output channel; *choosing* entries is the LLM's job.
+
+### Inputs
+1. `videos/{name}/podcast.txt` — the script just written
+2. `${SKILL_DIR}/phonemes.json` — global dict (already-covered words; do NOT duplicate)
+3. `videos/{name}/phonemes.json` — project dict (create if missing)
+
+### Pass 1 — Polyphone scan
+
+Read podcast.txt sentence by sentence. For every Chinese polyphone risk, pick the pronunciation from context. Common ones in tech/explainer content (non-exhaustive — use linguistic judgment):
+
+| 字 | Pinyin choices | Typical context |
+|----|---|---|
+| 行 | háng / xíng | 一行/银行/行业 (háng); 执行/运行/可行/行走 (xíng) |
+| 重 | chóng / zhòng | 重做/重新/重复/重试 (chóng); 重要/重量/严重 (zhòng) |
+| 长 | cháng / zhǎng | 长度/长期 (cháng); 增长/成长/校长 (zhǎng) |
+| 为 | wéi / wèi | 作为/认为/成为 (wéi); 因为/为了 (wèi) |
+| 还 | hái / huán | 还有/还是 (hái); 归还/偿还 (huán) |
+| 着 | zhe / zháo / zhuó | 跟着/沿着 (zhe); 着火/着急 (zháo); 着手/着重 (zhuó) |
+| 差 | chā / chà / chāi | 差别/差距 (chā); 差不多 (chà); 出差 (chāi) |
+| 调 | diào / tiáo | 调研/调查/语调 (diào); 调整/协调 (tiáo) |
+| 分 | fēn / fèn | 分钟/分开/分类 (fēn); 缘分/部分/养分 (fèn) |
+| 中 | zhōng / zhòng | 中间/中央 (zhōng); 中奖/命中 (zhòng) |
+| 处 | chǔ / chù | 处理/相处 (chǔ); 到处/好处 (chù) |
+| 间 | jiān / jiàn | 中间/时间/期间 (jiān); 间隔/间断 (jiàn) |
+| 给 | gěi / jǐ | 给我/给你 (gěi); 供给/补给 (jǐ) |
+| 教 | jiāo / jiào | 教书/教课 (jiāo); 教育/宗教 (jiào) |
+| 模 | mó / mú | 模型/模式/规模 (mó); 模样/一模一样 (mú) |
+| 量 | liàng / liáng | 数量/质量/分量 (liàng); 测量/丈量 (liáng) |
+| 觉 | jué / jiào | 感觉/觉得 (jué); 睡觉/午觉 (jiào) |
+| 应 | yīng / yìng | 应该/应当 (yīng); 答应/反应/适应 (yìng) |
+| 干 | gān / gàn | 干净/相干 (gān); 干活/能干 (gàn) |
+| 转 | zhuǎn / zhuàn | 转弯/转换 (zhuǎn); 转动/旋转 (zhuàn) |
+| 划 | huá / huà | 划船/划算 (huá); 计划/规划 (huà) |
+| 数 | shù / shǔ | 数字/次数 (shù); 数数/数一数 (shǔ) |
+| 当 | dāng / dàng | 当然/应当 (dāng); 适当/上当 (dàng) |
+| 占 | zhān / zhàn | 占卜 (zhān); 占据/占领 (zhàn) |
+| 假 | jiǎ / jià | 假如/假设/假装 (jiǎ); 放假/假期 (jià) |
+| 倒 | dǎo / dào | 倒下/倒闭 (dǎo); 倒车/倒影/倒是 (dào) |
+| 几 | jī / jǐ | 几乎/茶几 (jī); 几个/几次 (jǐ) |
+| 卡 | kǎ / qiǎ | 卡片/打卡 (kǎ); 卡住/关卡 (qiǎ) |
+
+**Rules for writing entries:**
+- **Whole-word keys**, not single characters: `"一行命令": "yì háng mìng lìng"`, never `"行": "háng"`. The applier matches longest-first; whole words avoid catastrophic over-replacement.
+- Pinyin **with tone marks** (ā á ǎ à), space-separated syllables. The TTS layer converts to SAPI numeric tones.
+- Skip any word **already** in global `${SKILL_DIR}/phonemes.json` — duplicates waste a phoneme tag and risk drift.
+
+### Pass 2 — English term review
+
+`mark_english_terms` (in `scripts/tts/ssml.py`) auto-wraps ASCII runs in `<lang xml:lang="en-US">`, but has known gaps:
+- **Hyphenated names**: `tldraw-cli` → only `cli` may get wrapped; `tldraw` reads through the voice's default Chinese pronunciation of letters.
+- **Initialisms**: `API`, `URL`, `MCP` are wrapped as words. If you intend letter-by-letter reading, add an **inline marker** in podcast.txt: `配置 API[ei pi ai] 后...`
+- **Versioned names**: `GPT-4`, `Claude 4.6` — verify the digit reads as digit and the dash reads as space.
+
+For each risky term, prefer editing `podcast.txt`:
+- Inline marker form: `tldraw-cli[tldraw c l i]` or rewrite as `tldraw 命令行工具`
+- Multi-word phrases already covered by allowlist: `Claude Code`, `Final Cut Pro`, `Visual Studio Code`, `VS Code`, `Google Chrome`, `Open AI`, `OpenAI`, `GPT 4`, `GPT-4`
+
+### Pass 3 — English brand names with Chinese pronunciation
+
+Some products are spelled in English in scripts/code/papers but have an established Chinese pronunciation that listeners expect. The phoneme system handles this cleanly: SSML `<phoneme>` tag overrides voice pronunciation while leaving the **subtitle text unchanged** (still shows "Qwen", audio says "千问").
+
+Add to `videos/{name}/phonemes.json` (or global if it's a stable choice):
+
+```json
+{
+  "Qwen": "qiān wèn",
+  "Bilibili": "bì lì bì lì"
+}
+```
+
+**Decision rule:**
+- Has a widely-recognized Chinese name **and** the script says it in a Chinese-language sentence → add phoneme entry to read it in Chinese.
+- Is a code identifier, paper title term, or quoted English brand → leave it as English (don't add).
+- Examples to **leave alone**: `Claude`, `Gemini`, `Llama`, `Mistral`, `OpenAI`, `Anthropic`, `GitHub`, `Docker`, `Python` — these are read in English in Chinese tech speech.
+
+Use judgment per script. Don't over-translate.
+
+### Output
+
+1. Updated `videos/{name}/phonemes.json` — pretty-printed JSON, longest-key entries first.
+2. (Optional) Edits to `videos/{name}/podcast.txt` for inline English markers or rewrites.
+3. **Console summary**: `Pronunciation pre-flight: N polyphone entries added, M English terms flagged.` If both 0: `No issues found.`
+
+### Re-run behavior
+
+Always re-scan when this step runs. Existing project-level entries that are still correct should be preserved; new findings get appended. Stale entries (word no longer in podcast.txt) can be left as-is — unused entries cost nothing.

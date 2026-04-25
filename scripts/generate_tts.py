@@ -64,10 +64,13 @@ def main():
 
     # --- Backend init (skip for validate-only) ---
     if not args.validate:
-        BACKEND = args.backend or os.environ.get("TTS_BACKEND", "edge")
-        print(f"TTS backend: {BACKEND}")
+        from tts.backends import init_backend, get_synthesize_func, get_max_chars, resolve_backend
+        if args.backend:
+            BACKEND, source = args.backend, 'cli'
+        else:
+            BACKEND, source = resolve_backend()
+        print(f"TTS backend: {BACKEND} [from {source}]")
 
-        from tts.backends import init_backend, get_synthesize_func, get_max_chars
         config = init_backend(BACKEND)
         MAX_CHARS = get_max_chars(BACKEND)
     else:
