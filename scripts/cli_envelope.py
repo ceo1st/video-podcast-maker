@@ -70,17 +70,23 @@ def use_json(args):
     return not _REAL_STDOUT.isatty()
 
 
-def emit_success(args, data, *, meta=None, started_at=None):
-    """Emit the success envelope. Returns exit code 0.
+def emit_success(args, data, *, meta=None, started_at=None, exit_code=0):
+    """Emit the success envelope. Returns ``exit_code`` (default 0).
 
     Caller pattern: ``sys.exit(emit_success(args, {...}))``.
     In prose mode this is a no-op — the script's existing prose is the human report.
+
+    ``exit_code`` lets a caller signal a warned-but-publishable state without
+    flipping ``ok`` to false. Use sparingly — agents should rely on the envelope
+    body (e.g. a ``warnings`` list in ``data``), not on out-of-band exit codes.
+    The current legitimate use is ``verify_output.py`` returning 2 for
+    "warnings only, still publishable" to preserve a documented shell contract.
     """
     if not use_json(args):
-        return 0
+        return exit_code
     envelope = {"ok": True, "data": data, "meta": _build_meta(meta, started_at)}
     print(json.dumps(envelope, ensure_ascii=False), file=_REAL_STDOUT)
-    return 0
+    return exit_code
 
 
 def emit_error(args, code, message, *, field=None, retryable=None,
