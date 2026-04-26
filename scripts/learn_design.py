@@ -491,7 +491,13 @@ def _build_parser():
     parser.add_argument(
         "--delete",
         metavar="REF_ID",
-        help="Delete a design reference",
+        help="Delete a design reference (requires --yes; otherwise prints preview).",
+    )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Confirm destructive operations (currently: --delete). Without --yes, "
+             "destructive flags print a preview of what would change and exit 3.",
     )
     parser.add_argument(
         "--profile",
@@ -524,11 +530,46 @@ def main():
         _show_reference(args.show, output_dir)
         return
 
-    # -- Delete mode --
+    # -- Delete mode (gated by --yes) --
     if args.delete:
-        remove_reference(prefs, args.delete, output_dir)
+        ref_id = args.delete
+        ref_dir = os.path.join(output_dir, ref_id)
+        in_prefs = ref_id in prefs.get("design_references", {})
+        on_disk = os.path.isdir(ref_dir)
+        if not in_prefs and not on_disk:
+            print(f"Error: reference '{ref_id}' not found in prefs and no directory exists.",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        if not args.yes:
+            # Preview what would change. Goes to stderr so a piping caller
+            # doesn't mistake it for the (non-emitted) success output.
+            meta = prefs.get("design_references", {}).get(ref_id, {})
+            title = meta.get("title", "")
+            frames_dir = os.path.join(ref_dir, "frames")
+            frame_count = len(os.listdir(frames_dir)) if os.path.isdir(frames_dir) else 0
+            used_by = [name for name, profile in prefs.get("style_profiles", {}).items()
+                       if ref_id in profile.get("references", [])]
+
+            print(f"Would delete reference: {ref_id}", file=sys.stderr)
+            print(f"  path:    {ref_dir}{'' if on_disk else '  (not on disk)'}", file=sys.stderr)
+            if title:
+                print(f"  title:   {title}", file=sys.stderr)
+            print(f"  frames:  {frame_count} file(s)", file=sys.stderr)
+            if used_by:
+                print(f"  used by: {len(used_by)} style profile(s) — {', '.join(used_by)}",
+                      file=sys.stderr)
+                print(f"           (will be removed from each profile's references list)",
+                      file=sys.stderr)
+            else:
+                print(f"  used by: (no style profiles)", file=sys.stderr)
+            print(f"\nRe-run with --yes to confirm deletion.", file=sys.stderr)
+            # Exit 3 = confirmation_required in cli_envelope.ERROR_CODES vocabulary.
+            sys.exit(3)
+
+        remove_reference(prefs, ref_id, output_dir)
         save_prefs(prefs, prefs_path)
-        print(f"Deleted reference: {args.delete}")
+        print(f"Deleted reference: {ref_id}")
         return
 
     # -- Process inputs --
