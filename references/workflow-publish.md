@@ -103,21 +103,29 @@ Format: `MM:SS Chapter Title`, each gap ≥5s.
 
 ### 14.1 Verification
 
-```bash
-VIDEO_DIR="videos/{name}"
-echo "=== File Check ==="
-for f in podcast.txt podcast_audio.wav podcast_audio.srt timing.json output.mp4 final_video.mp4; do
-  [ -f "$VIDEO_DIR/$f" ] && echo "✓ $f" || echo "✗ $f missing"
-done
+Run the unified verifier — it checks all required files, validates technical specs, audits audio/timing alignment, sanity-checks publish_info.md, AND **auto-fixes common omissions** (e.g. creates `final_video.mp4` from `video_with_bgm.mp4` when subtitles were skipped but the alias step was missed).
 
-echo "=== Technical Specs ==="
-RES=$(ffprobe -v quiet -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$VIDEO_DIR/final_video.mp4")
-[ "$RES" = "3840,2160" ] && echo "✓ Resolution: 3840x2160 (4K)" || echo "✗ Resolution: $RES (not 4K)"
-DUR=$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$VIDEO_DIR/final_video.mp4" | cut -d. -f1)
-echo "✓ Duration: ${DUR}s"
-SIZE=$(ls -lh "$VIDEO_DIR/final_video.mp4" | awk '{print $5}')
-echo "✓ File size: $SIZE"
+```bash
+python3 ${SKILL_DIR}/scripts/verify_output.py videos/{name}/
 ```
+
+Exit codes:
+- `0` = all required files present and valid → ready to publish
+- `1` = critical missing or invalid → fix before publishing
+- `2` = warnings only → still publishable, review noted issues
+
+For strict mode (treat warnings as errors), add `--strict`.
+
+What it checks:
+- Required files: podcast.txt, podcast_audio.{wav,srt}, timing.json, output.mp4, **final_video.mp4**, publish_info.md, both thumbnails
+- Final video specs: 3840×2160, h264 + aac, has audio track, duration plausible
+- Thumbnail dimensions: 1920×1080 (16:9) and 1200×900 (4:3)
+- Audio/timing drift: WAV duration matches timing.json within 0.5s
+- publish_info.md: contains promo line, 标题/标签/简介/章节 sections
+
+What it auto-fixes:
+- Creates `final_video.mp4` from `video_with_bgm.mp4` if missing (subtitles-skipped path)
+- Falls back to `output.mp4` if no BGM mix exists yet (with warning to run Step 11)
 
 ### 14.2 Cleanup
 
