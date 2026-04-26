@@ -70,6 +70,22 @@ When `user_prefs.visual.theme` is `"dark"`:
 
 ---
 
+## Animation Safety (MUST follow)
+
+Hard limits to prevent strobing, flicker, and visual fatigue. These apply to every composition regardless of style.
+
+| Rule | Requirement |
+|------|-------------|
+| **Full-screen brightness change** | `opacity` of any full-bleed white/black overlay must NOT exceed `0.30` |
+| **Snap duration** | No light↔dark snap may complete in fewer than `10` frames (~0.33s @ 30fps) |
+| **Section transition flash** | Forbidden by default. Use color pulse (≤0.15 opacity) or simple cut instead. |
+| **Per-beat reveal flash** | If used (e.g. "kinetic flash" effect), peak opacity ≤ `0.15` and decay ≥ `12` frames |
+| **Strobe-frequency animation** | Forbidden. Any flicker faster than 3Hz risks accessibility issues (photosensitive viewers) |
+| **Background pulse** | Color/glow pulses on background layers ≤ `0.15` opacity, period ≥ `2s` |
+| **Text colour inversion** | Don't invert text colour on a flash beat — it disappears against the dark BG once flash decays |
+
+**Why**: full-screen flashes (even at 0.85 opacity for 6 frames) feel like camera-flash strobes when watched repeatedly during edit/preview. Most kinetic-typography references use *type motion* for punch, not background strobes. The visual energy should come from character pop / marker reveal / scale animations, not from the canvas blinking.
+
 ## Quality Checklists (MUST follow)
 
 ### Per-Section Checklist
