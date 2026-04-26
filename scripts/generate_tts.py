@@ -6,9 +6,11 @@ Generates audio from podcast.txt and creates SRT subtitles + timing.json for Rem
 import os
 import sys
 import re
+import time
 import argparse
 import subprocess
 
+import cli_envelope
 from tts.phonemes import load_phoneme_dicts, extract_inline_phonemes
 from tts.sections import parse_sections, validate_sections, print_validation_report, match_section_times
 from tts.srt import write_srt, write_timing, reconcile_timing_with_wav
@@ -30,6 +32,7 @@ def build_parser():
     parser.add_argument('--resume', action='store_true', help='Resume from last breakpoint')
     parser.add_argument('--dry-run', action='store_true', help='Estimate duration without calling TTS API')
     parser.add_argument('--validate', action='store_true', help='Validate podcast.txt format without calling TTS API')
+    cli_envelope.add_format_arg(parser)
     return parser
 
 
@@ -110,7 +113,21 @@ def chunk_text(clean_text, max_chars):
 def main():
     parser = build_parser()
     args = parser.parse_args()
+    started_at = time.time()
+    json_mode = cli_envelope.use_json(args)
+    if json_mode:
+        # In JSON mode every progress line and helper print() must move off
+        # stdout so the final envelope is the only payload an agent parses.
+        # cli_envelope captured the real stdout at import time, so emit_*
+        # still reaches it via cli_envelope._REAL_STDOUT.
+        sys.stdout = sys.stderr
+    try:
+        return _run(args, started_at)
+    finally:
+        sys.stdout = sys.__stdout__
 
+
+def _run(args, started_at):
     # --- Backend init (skip for validate-only) ---
     if not args.validate:
         from tts.backends import init_backend, get_synthesize_func, get_max_chars, resolve_backend
@@ -134,8 +151,11 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     if not os.path.exists(args.input):
-        print(f"Error: Input file not found: {args.input}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(cli_envelope.emit_error(
+            args, "input_not_found",
+            f"Input file not found: {args.input}",
+            field="input", started_at=started_at,
+        ))
 
     with open(args.input, "r", encoding="utf-8") as f:
         text = f.read().strip()
@@ -146,6 +166,22 @@ def main():
     # --- Validate mode ---
     if args.validate:
         errors, warnings = validate_sections(text, sections, matches)
+        if cli_envelope.use_json(args):
+            section_names = [s['name'] for s in sections]
+            if errors:
+                sys.exit(cli_envelope.emit_error(
+                    args, "validation_failed",
+                    f"{len(errors)} validation error(s) in {args.input}",
+                    extra={"errors": errors, "warnings": warnings, "sections": section_names},
+                    started_at=started_at,
+                ))
+            sys.exit(cli_envelope.emit_success(args, {
+                "input": args.input,
+                "sections": section_names,
+                "warnings": warnings,
+                "text_length": len(clean_text),
+                "estimated_chunks": max(1, len(clean_text) // 200),
+            }, started_at=started_at))
         print_validation_report(args.input, sections, clean_text, errors, warnings)
         return  # print_validation_report calls sys.exit, but guard against refactoring
 
@@ -201,17 +237,27 @@ def main():
         if rate_match:
             est_duration /= 1.0 + int(rate_match.group(1)) / 100.0
         est_frames = int(est_duration * 30)
+        non_silent = [s for s in sections if not s.get('is_silent')]
         print(f"\n--- Dry Run ---")
         print(f"Chinese chars: {cn_chars}, English words: {en_words}")
         print(f"Estimated duration: {est_duration:.0f}s ({est_duration/60:.1f}min)")
         print(f"Estimated frames: {est_frames} @ 30fps")
         print(f"Speech rate: {SPEECH_RATE}")
         print(f"Backend: {BACKEND} (not called)")
-        non_silent = [s for s in sections if not s.get('is_silent')]
         if len(non_silent) > 1:
             avg = est_duration / len(non_silent)
             print(f"Average section: ~{avg:.0f}s ({len(non_silent)} sections with content)")
-        sys.exit(0)
+        sys.exit(cli_envelope.emit_success(args, {
+            "dry_run": True,
+            "backend": BACKEND,
+            "speech_rate": SPEECH_RATE,
+            "cn_chars": cn_chars,
+            "en_words": en_words,
+            "estimated_duration_seconds": round(est_duration, 2),
+            "estimated_frames_at_30fps": est_frames,
+            "sections": [s['name'] for s in sections],
+            "non_silent_sections": len(non_silent),
+        }, started_at=started_at))
 
     # --- Chunk text ---
     chunks = chunk_text(clean_text, MAX_CHARS)
@@ -248,9 +294,15 @@ def main():
         ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list, "-c", "copy", output_wav],
         capture_output=True, text=True, cwd=args.output_dir)
     if concat_result.returncode != 0:
-        print(f"Error: FFmpeg concat failed:\n{concat_result.stderr}", file=sys.stderr)
-        print("Note: timing.json and podcast_audio.srt were saved successfully.", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(cli_envelope.emit_error(
+            args, "ffmpeg_failed",
+            "FFmpeg concat failed; timing.json and podcast_audio.srt were saved.",
+            extra={
+                "stderr": concat_result.stderr.strip(),
+                "saved_outputs": {"timing": output_timing, "subtitles": output_srt},
+            },
+            started_at=started_at,
+        ))
     print(f"Done: {output_wav}")
     print(f"  Temp files kept: {len(part_files)} part_*.wav (manual cleanup: Step 14)")
 
@@ -260,6 +312,26 @@ def main():
     # ensures the Remotion composition's last sections aren't truncated.
     print("\nVerifying audio/timing alignment...")
     reconcile_timing_with_wav(output_timing, output_wav)
+
+    sys.exit(cli_envelope.emit_success(args, {
+        "backend": BACKEND,
+        "speech_rate": SPEECH_RATE,
+        "audio_wav": output_wav,
+        "subtitles_srt": output_srt,
+        "timing_json": output_timing,
+        "total_duration_seconds": round(total_duration, 2),
+        "chunks": len(chunks),
+        "part_files": len(part_files),
+        "sections": [
+            {
+                "name": s['name'],
+                "start_time": s.get('start_time'),
+                "duration": s.get('duration'),
+                "is_silent": s.get('is_silent', False),
+            }
+            for s in sections
+        ],
+    }, started_at=started_at))
 
 
 if __name__ == "__main__":
