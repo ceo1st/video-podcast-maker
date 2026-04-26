@@ -51,6 +51,25 @@ def resolve_speech_rate():
     return '+5%', 'default'
 
 
+def resolve_azure_style():
+    """Resolve Azure mstts:express-as style.
+
+    Precedence: env TTS_STYLE > user_prefs.json > 'gentle'.
+    Empty string ("") explicitly disables the express-as wrapper — useful when
+    the chosen voice has poor style support (e.g. Multilingual variants) or
+    when a style produces vocoder artifacts on certain phonetic transitions.
+
+    Returns (style, source) where source is 'env', 'user_prefs', or 'default'.
+    """
+    env = os.environ.get('TTS_STYLE')
+    if env is not None:  # honour empty string
+        return env, 'env'
+    pref = user_prefs_get('global', 'tts', 'azure_style')
+    if pref is not None:
+        return pref, 'user_prefs'
+    return 'gentle', 'default'
+
+
 def _resolve_voice(backend_name, env_var, default):
     """Resolve voice with precedence: env var > user_prefs.json > hardcoded default."""
     env_val = os.environ.get(env_var)
@@ -153,6 +172,12 @@ def _build_config(name):
         config['region'] = os.environ.get('AZURE_SPEECH_REGION', 'eastasia')
         # Default to standard XiaoxiaoNeural — Multilingual variant ignores SAPI phoneme tags for zh-CN
         config['voice'] = _resolve_voice('azure', 'AZURE_TTS_VOICE', 'zh-CN-XiaoxiaoNeural')
+        style, src = resolve_azure_style()
+        config['style'] = style
+        if style:
+            print(f"  Azure style: {style} [from {src}]")
+        else:
+            print(f"  Azure style: (none — express-as wrapper disabled) [from {src}]")
     elif name == 'edge':
         config['voice'] = _resolve_voice('edge', 'EDGE_TTS_VOICE', 'zh-CN-XiaoxiaoNeural')
     elif name == 'doubao':

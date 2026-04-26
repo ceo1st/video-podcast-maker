@@ -14,13 +14,14 @@ def synthesize(chunks, config, output_dir, resume=False):
     import azure.cognitiveservices.speech as speechsdk
 
     speech_config = speechsdk.SpeechConfig(subscription=config['key'], region=config['region'])
-    voice = config.get('voice', 'zh-CN-XiaoxiaoMultilingualNeural')
+    voice = config.get('voice', 'zh-CN-XiaoxiaoNeural')
     speech_config.SpeechSynthesisVoiceName = voice
     part_files = []
     word_boundaries = []
     accumulated_duration = 0
     speech_rate = config.get('speech_rate', '+5%')
     phoneme_dict = config.get('phoneme_dict', {})
+    style = config.get('style', 'gentle')  # empty string disables express-as
 
     for i, chunk in enumerate(chunks):
         part_file = os.path.join(output_dir, f"part_{i}.wav")
@@ -48,12 +49,18 @@ def synthesize(chunks, config, output_dir, resume=False):
         chunk_with_phonemes = apply_phonemes(chunk, phoneme_dict)
         processed = mark_english_terms(chunk_with_phonemes)
 
+        prosody_block = f'<prosody rate="{speech_rate}">{processed}</prosody>'
+        # Multilingual voices have inconsistent style support — when style produces
+        # vocoder artifacts, disable via TTS_STYLE="". Skipping the wrapper keeps
+        # natural neural prosody and avoids hoarse/strained transitions.
+        if style:
+            inner = f'<mstts:express-as style="{style}">{prosody_block}</mstts:express-as>'
+        else:
+            inner = prosody_block
         ssml = f"""<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"
                    xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="zh-CN">
             <voice name="{voice}">
-                <mstts:express-as style="gentle">
-                    <prosody rate="{speech_rate}">{processed}</prosody>
-                </mstts:express-as>
+                {inner}
             </voice>
         </speak>"""
 

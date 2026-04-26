@@ -2,6 +2,7 @@
 import os
 import re
 import json
+import subprocess
 
 
 def format_time(seconds):
@@ -133,3 +134,57 @@ def write_timing(sections, total_duration, speech_rate, output_path):
     for s in timing_data['sections']:
         print(f"  {s['name']}: {s['start_time']:.1f}s - {s['end_time']:.1f}s ({s['duration']:.1f}s)")
     print(f"\nTotal duration: {total_duration:.1f}s ({timing_data['total_frames']} frames @ 30fps)")
+
+
+def ffprobe_duration(wav_path):
+    """Return WAV duration in seconds via ffprobe, or None if probe fails."""
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration',
+             '-of', 'csv=p=0', wav_path],
+            capture_output=True, text=True, check=True)
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError, FileNotFoundError):
+        return None
+
+
+def reconcile_timing_with_wav(timing_path, wav_path, drift_threshold=0.5):
+    """Reconcile timing.json with the actual concatenated WAV duration.
+
+    Azure (and other backends) sometimes under-report `audio_duration` when SSML
+    tags like <break>, <phoneme>, or nested <lang>/<say-as> are present. Without
+    reconciliation, timing.json drifts from the real audio — sections shift
+    earlier than they should and the last seconds get cut off in Remotion.
+
+    Strategy: ffprobe the actual WAV. If drift > threshold, scale every
+    section's start/end/duration uniformly. Cheap and conservative — preserves
+    relative section proportions exactly.
+
+    Returns: (scale_factor, real_duration) or (1.0, reported) if no rescale.
+    """
+    real = ffprobe_duration(wav_path)
+    if real is None:
+        print(f"Warning: ffprobe failed on {wav_path}; timing.json left unchanged")
+        return 1.0, None
+    with open(timing_path, 'r', encoding='utf-8') as f:
+        timing = json.load(f)
+    reported = timing['total_duration']
+    drift = real - reported
+    if abs(drift) < drift_threshold:
+        print(f"Timing OK: ffprobe {real:.2f}s vs reported {reported:.2f}s (drift {drift:+.2f}s)")
+        return 1.0, real
+    scale = real / reported
+    fps = timing.get('fps', 30)
+    for s in timing['sections']:
+        s['start_time'] = round(s['start_time'] * scale, 3)
+        s['end_time'] = round(s['end_time'] * scale, 3)
+        s['duration'] = round(s['duration'] * scale, 3)
+        s['start_frame'] = int(s['start_time'] * fps)
+        s['duration_frames'] = int(s['duration'] * fps)
+    timing['total_duration'] = real
+    timing['total_frames'] = int(real * fps)
+    with open(timing_path, 'w', encoding='utf-8') as f:
+        json.dump(timing, f, indent=2, ensure_ascii=False)
+    print(f"Timing rescaled: scale={scale:.4f}  reported {reported:.2f}s -> actual {real:.2f}s  (drift {drift:+.2f}s)")
+    print(f"  -> {timing['total_frames']} frames @ {fps}fps")
+    return scale, real

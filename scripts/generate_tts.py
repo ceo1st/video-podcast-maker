@@ -11,7 +11,8 @@ import subprocess
 
 from tts.phonemes import load_phoneme_dicts, extract_inline_phonemes
 from tts.sections import parse_sections, validate_sections, print_validation_report, match_section_times
-from tts.srt import write_srt, write_timing
+from tts.srt import write_srt, write_timing, reconcile_timing_with_wav
+from tts.voice_advisor import print_advisory
 
 
 def build_parser():
@@ -187,6 +188,10 @@ def main():
     clean_text = re.sub(r'([A-Za-z0-9\-]+)，读作["""]([\u4e00-\u9fff]+)["""]', r"\2", clean_text)
     print(f"Text length: {len(clean_text)} characters")
 
+    # Voice advisory — flag when content vs voice choice is suboptimal
+    if BACKEND == 'azure':
+        print_advisory(clean_text, config.get('voice'))
+
     # --- Dry run ---
     if args.dry_run:
         cn_chars = len(re.findall(r'[\u4e00-\u9fff]', clean_text))
@@ -248,6 +253,13 @@ def main():
         sys.exit(1)
     print(f"Done: {output_wav}")
     print(f"  Temp files kept: {len(part_files)} part_*.wav (manual cleanup: Step 14)")
+
+    # Reconcile timing.json with actual WAV duration. Azure can under-report
+    # audio_duration when SSML tags (break/phoneme/say-as) are present, leading
+    # to drift between timing.json and the real audio. Conservative rescale here
+    # ensures the Remotion composition's last sections aren't truncated.
+    print("\nVerifying audio/timing alignment...")
+    reconcile_timing_with_wav(output_timing, output_wav)
 
 
 if __name__ == "__main__":
