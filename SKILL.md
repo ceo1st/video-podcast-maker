@@ -103,9 +103,14 @@ fi
 
 ## Prerequisites Check
 
-!`python3 "${SKILL_DIR}/scripts/check_prereqs.py"`
+**Agent behavior:** Run the pre-flight check below before Step 1. `SKILL_DIR` must already be resolved (see Auto Update Check section above for resolution rules).
 
-**If MISSING reported above**, see README.md for full setup instructions (install commands, API key setup, Remotion project init). The check is backend-aware: backend is resolved as `TTS_BACKEND` env var → `user_prefs.json` (`global.tts.backend`) → `edge` default, then only env vars required by that backend are validated.
+```bash
+SKILL_DIR="${SKILL_DIR:-${CLAUDE_SKILL_DIR}}"
+python3 "${SKILL_DIR}/scripts/check_prereqs.py"
+```
+
+**If MISSING reported**, see README.md for full setup instructions (install commands, API key setup, Remotion project init). The check is backend-aware: backend is resolved as `TTS_BACKEND` env var → `user_prefs.json` (`global.tts.backend`) → `edge` default, then only env vars required by that backend are validated.
 
 ---
 
