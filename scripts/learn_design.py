@@ -12,7 +12,11 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cli_envelope  # noqa: E402
 
 
 # ============ Constants ============
@@ -507,28 +511,109 @@ def _build_parser():
         "--tags",
         help="Comma-separated tags for filtering (e.g., 'tech,minimal,dark')",
     )
+    cli_envelope.add_format_arg(parser)
     return parser
+
+
+# ============ Structured-data helpers (envelope) ============
+
+def _compute_references_index(prefs, design_refs_base):
+    """Return a list of structured records for every design reference.
+
+    Drives both --list prose printing and the --format json envelope.
+    """
+    refs = prefs.get("design_references", {})
+    records = []
+    for ref_id, meta in sorted(refs.items()):
+        ref_dir = os.path.join(design_refs_base, ref_id)
+        frames_dir = os.path.join(ref_dir, "frames")
+        frame_count = len(os.listdir(frames_dir)) if os.path.isdir(frames_dir) else 0
+        records.append({
+            "ref_id": ref_id,
+            "title": meta.get("title", ""),
+            "analyzed_at": meta.get("analyzed_at"),
+            "frame_count": frame_count,
+            "tags": meta.get("tags", []),
+            "path": meta.get("path", f"design_references/{ref_id}"),
+            "source_url": meta.get("source_url"),
+            "on_disk": os.path.isdir(ref_dir),
+        })
+    return records
+
+
+def _compute_delete_preview(prefs, ref_id, ref_dir):
+    """Compute what --delete REF_ID would change.
+
+    Returns a dict suitable for both prose preview and the
+    confirmation_required envelope's 'would_delete' slot.
+    """
+    meta = prefs.get("design_references", {}).get(ref_id, {})
+    frames_dir = os.path.join(ref_dir, "frames")
+    frame_count = len(os.listdir(frames_dir)) if os.path.isdir(frames_dir) else 0
+    used_by = [name for name, profile in prefs.get("style_profiles", {}).items()
+               if ref_id in profile.get("references", [])]
+    return {
+        "ref_id": ref_id,
+        "path": ref_dir,
+        "on_disk": os.path.isdir(ref_dir),
+        "title": meta.get("title", ""),
+        "frame_count": frame_count,
+        "used_by_profiles": used_by,
+    }
 
 
 def main():
     parser = _build_parser()
     args = parser.parse_args()
+    started_at = time.time()
+    json_mode = cli_envelope.use_json(args)
+    if json_mode:
+        # Route prose chatter off stdout so the envelope is the only payload.
+        sys.stdout = sys.stderr
+    try:
+        return _run(parser, args, started_at)
+    finally:
+        sys.stdout = sys.__stdout__
 
+
+def _run(parser, args, started_at):
     # Locate prefs file at skill root (one level above scripts/)
     prefs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "user_prefs.json")
     prefs = load_prefs(prefs_path)
-
     output_dir = args.output_dir
 
     # -- List mode --
     if args.list:
         _list_references(prefs, output_dir)
-        return
+        records = _compute_references_index(prefs, output_dir)
+        sys.exit(cli_envelope.emit_success(args, {
+            "mode": "list",
+            "output_dir": output_dir,
+            "references": records,
+            "count": len(records),
+        }, started_at=started_at))
 
     # -- Show mode --
     if args.show:
-        _show_reference(args.show, output_dir)
-        return
+        ref_id = args.show
+        ref_dir = os.path.join(output_dir, ref_id)
+        try:
+            report = load_report(ref_dir)
+        except FileNotFoundError:
+            sys.exit(cli_envelope.emit_error(
+                args, "input_not_found",
+                f"no report found for '{ref_id}'",
+                field="show",
+                extra={"ref_id": ref_id,
+                       "expected_path": os.path.join(ref_dir, "report.json")},
+                started_at=started_at,
+            ))
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        sys.exit(cli_envelope.emit_success(args, {
+            "mode": "show",
+            "ref_id": ref_id,
+            "report": report,
+        }, started_at=started_at))
 
     # -- Delete mode (gated by --yes) --
     if args.delete:
@@ -539,51 +624,64 @@ def main():
         if not in_prefs and not on_disk:
             print(f"Error: reference '{ref_id}' not found in prefs and no directory exists.",
                   file=sys.stderr)
-            sys.exit(1)
+            sys.exit(cli_envelope.emit_error(
+                args, "input_not_found",
+                f"reference '{ref_id}' not found in prefs and no directory exists",
+                field="delete", extra={"ref_id": ref_id},
+                started_at=started_at,
+            ))
+
+        preview = _compute_delete_preview(prefs, ref_id, ref_dir)
 
         if not args.yes:
-            # Preview what would change. Goes to stderr so a piping caller
-            # doesn't mistake it for the (non-emitted) success output.
-            meta = prefs.get("design_references", {}).get(ref_id, {})
-            title = meta.get("title", "")
-            frames_dir = os.path.join(ref_dir, "frames")
-            frame_count = len(os.listdir(frames_dir)) if os.path.isdir(frames_dir) else 0
-            used_by = [name for name, profile in prefs.get("style_profiles", {}).items()
-                       if ref_id in profile.get("references", [])]
-
+            # Existing prose preview to stderr (preserves the format users see today).
             print(f"Would delete reference: {ref_id}", file=sys.stderr)
             print(f"  path:    {ref_dir}{'' if on_disk else '  (not on disk)'}", file=sys.stderr)
-            if title:
-                print(f"  title:   {title}", file=sys.stderr)
-            print(f"  frames:  {frame_count} file(s)", file=sys.stderr)
-            if used_by:
-                print(f"  used by: {len(used_by)} style profile(s) — {', '.join(used_by)}",
-                      file=sys.stderr)
+            if preview['title']:
+                print(f"  title:   {preview['title']}", file=sys.stderr)
+            print(f"  frames:  {preview['frame_count']} file(s)", file=sys.stderr)
+            if preview['used_by_profiles']:
+                print(f"  used by: {len(preview['used_by_profiles'])} style profile(s) — "
+                      f"{', '.join(preview['used_by_profiles'])}", file=sys.stderr)
                 print(f"           (will be removed from each profile's references list)",
                       file=sys.stderr)
             else:
                 print(f"  used by: (no style profiles)", file=sys.stderr)
             print(f"\nRe-run with --yes to confirm deletion.", file=sys.stderr)
-            # Exit 3 = confirmation_required in cli_envelope.ERROR_CODES vocabulary.
-            sys.exit(3)
+            sys.exit(cli_envelope.emit_error(
+                args, "confirmation_required",
+                f"Add --yes to delete reference '{ref_id}'",
+                field="delete",
+                extra={"would_delete": preview,
+                       "next": [f"python3 scripts/learn_design.py --delete {ref_id} --yes"]},
+                started_at=started_at,
+            ))
 
         remove_reference(prefs, ref_id, output_dir)
         save_prefs(prefs, prefs_path)
         print(f"Deleted reference: {ref_id}")
-        return
+        sys.exit(cli_envelope.emit_success(args, {
+            "mode": "delete",
+            "ref_id": ref_id,
+            "deleted": preview,
+            "prefs_path": prefs_path,
+        }, started_at=started_at))
 
-    # -- Process inputs --
+    # -- Process inputs (add mode) --
     if not args.inputs:
+        if cli_envelope.use_json(args):
+            sys.exit(cli_envelope.emit_error(
+                args, "input_invalid",
+                "No action specified. Use --list, --show REF_ID, --delete REF_ID, "
+                "or pass one or more positional inputs (URLs, videos, images).",
+                started_at=started_at,
+            ))
         parser.print_help()
         return
 
     existing_ids = set(prefs.get("design_references", {}).keys())
-
-    # Classify inputs
-    images = []
-    videos = []
-    urls = []
-
+    images, videos, urls = [], [], []
+    skipped = []
     for input_path in args.inputs:
         input_type = detect_input_type(input_path)
         if input_type == "image":
@@ -594,12 +692,29 @@ def main():
             urls.append(input_path)
         elif input_type == "not_found":
             print(f"Warning: not found — skipping: {input_path}", file=sys.stderr)
+            skipped.append({"input": input_path, "reason": "not_found"})
         else:
             print(f"Warning: unsupported file type — skipping: {input_path}", file=sys.stderr)
+            skipped.append({"input": input_path, "reason": "unsupported"})
 
     if not images and not videos and not urls:
-        print("Error: No valid inputs provided.", file=sys.stderr)
-        return
+        sys.exit(cli_envelope.emit_error(
+            args, "input_invalid",
+            "No valid inputs provided",
+            extra={"skipped": skipped,
+                   "input_count": len(args.inputs)},
+            started_at=started_at,
+        ))
+
+    result = {
+        "mode": "add",
+        "output_dir": output_dir,
+        "name_arg": args.name,
+        "images": [],
+        "videos": [],
+        "urls": [],
+        "skipped": skipped,
+    }
 
     # Multiple images → group into one reference
     if images:
@@ -626,6 +741,10 @@ def main():
         save_report(report, ref_dir)
         add_reference_index(prefs, ref_id=ref_id, title=args.name or "Image set", source_url=None, tags=[])
         print(f"  Extracted {len(frames)} frames")
+        result['images'].append({
+            "ref_id": ref_id, "source": images, "frame_count": len(frames),
+            "ref_dir": ref_dir,
+        })
 
     # Each video → separate reference
     for video_path in videos:
@@ -657,6 +776,11 @@ def main():
         save_report(report, ref_dir)
         add_reference_index(prefs, ref_id=ref_id, title=os.path.basename(video_path), source_url=None, tags=[])
         print(f"  Extracted {len(frames)} frames")
+        result['videos'].append({
+            "ref_id": ref_id, "source": video_path, "frame_count": len(frames),
+            "duration_seconds": duration, "orientation": orientation,
+            "width": w, "height": h, "ref_dir": ref_dir,
+        })
 
     # URLs → placeholder (Playwright not yet implemented)
     for url in urls:
@@ -680,9 +804,13 @@ def main():
         }
         save_report(report, ref_dir)
         add_reference_index(prefs, ref_id=ref_id, title=url, source_url=url, tags=[])
+        result['urls'].append({
+            "ref_id": ref_id, "source": url, "needs_manual_frames": True, "ref_dir": ref_dir,
+        })
 
     save_prefs(prefs, prefs_path)
     print("\nDone. Pass the frames/ directory to your coding agent for design analysis.")
+    sys.exit(cli_envelope.emit_success(args, result, started_at=started_at))
 
 
 if __name__ == "__main__":
