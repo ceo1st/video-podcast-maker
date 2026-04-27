@@ -18,10 +18,13 @@ Usage:
     python3 scripts/migrate_prefs.py --dry-run  # report what would change without writing
 """
 import argparse
+import json
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cli_envelope  # noqa: E402
 from learn_design import (  # noqa: E402
     PREFS_VERSION,
     _load_template,
@@ -86,7 +89,6 @@ def migrate(prefs_path, dry_run=False):
         save_prefs(template, prefs_path)
         return {"action": "created", "from": None, "to": PREFS_VERSION, "changes": []}
 
-    import json
     with open(prefs_path, encoding="utf-8") as f:
         prefs = json.load(f)
 
@@ -109,36 +111,70 @@ def build_parser():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--prefs", default=None, help="Path to user_prefs.json (default: ${SKILL_DIR}/user_prefs.json)")
     parser.add_argument("--dry-run", action="store_true", help="Report changes without writing")
+    cli_envelope.add_format_arg(parser)
     return parser
 
 
 def main():
     args = build_parser().parse_args()
+    started_at = time.time()
+    json_mode = cli_envelope.use_json(args)
+    if json_mode:
+        sys.stdout = sys.stderr  # route prose chatter off stdout
+    try:
+        prefs_path = args.prefs or os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "user_prefs.json",
+        )
 
-    prefs_path = args.prefs or os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "user_prefs.json",
-    )
+        try:
+            result = migrate(prefs_path, dry_run=args.dry_run)
+        except json.JSONDecodeError as e:
+            sys.stdout = sys.__stdout__
+            sys.exit(cli_envelope.emit_error(
+                args, "input_invalid",
+                f"user_prefs.json is malformed: {e}",
+                field="prefs", extra={"prefs_path": prefs_path},
+                started_at=started_at,
+            ))
+        except OSError as e:
+            sys.stdout = sys.__stdout__
+            sys.exit(cli_envelope.emit_error(
+                args, "input_not_found",
+                f"Cannot read prefs file: {e}",
+                field="prefs", extra={"prefs_path": prefs_path},
+                started_at=started_at,
+            ))
 
-    result = migrate(prefs_path, dry_run=args.dry_run)
-    action = result["action"]
-    frm, to = result["from"], result["to"]
-    changes = result["changes"]
+        action = result["action"]
+        frm, to = result["from"], result["to"]
+        changes = result["changes"]
 
-    if action == "noop":
-        print(f"user_prefs.json is already at v{to} — no migration needed")
-    elif action == "created":
-        print(f"Created user_prefs.json at v{to} from template")
-    elif action == "would_create":
-        print(f"[dry-run] Would create user_prefs.json at v{to} from template")
-    elif action == "migrated":
-        print(f"Migrated user_prefs.json from v{frm} to v{to}")
-        for c in changes:
-            print(f"  - {c}")
-    elif action == "would_migrate":
-        print(f"[dry-run] Would migrate user_prefs.json from v{frm} to v{to}")
-        for c in changes:
-            print(f"  - {c}")
+        if action == "noop":
+            print(f"user_prefs.json is already at v{to} — no migration needed")
+        elif action == "created":
+            print(f"Created user_prefs.json at v{to} from template")
+        elif action == "would_create":
+            print(f"[dry-run] Would create user_prefs.json at v{to} from template")
+        elif action == "migrated":
+            print(f"Migrated user_prefs.json from v{frm} to v{to}")
+            for c in changes:
+                print(f"  - {c}")
+        elif action == "would_migrate":
+            print(f"[dry-run] Would migrate user_prefs.json from v{frm} to v{to}")
+            for c in changes:
+                print(f"  - {c}")
+    finally:
+        sys.stdout = sys.__stdout__
+
+    sys.exit(cli_envelope.emit_success(args, {
+        "action": result["action"],
+        "from_version": result["from"],
+        "to_version": result["to"],
+        "changes": result["changes"],
+        "prefs_path": prefs_path,
+        "dry_run": args.dry_run,
+    }, started_at=started_at))
 
 
 if __name__ == "__main__":

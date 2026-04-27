@@ -103,7 +103,7 @@ ACTIONS = {
     'prefs.get': {
         'script': 'get_pref.py',
         'prepend': [],
-        'parser_attr': None,
+        'parser_attr': 'build_parser',
         'description': 'Read a nested value from user_prefs.json (e.g. global tts rate)',
     },
     'prefs.migrate': {
