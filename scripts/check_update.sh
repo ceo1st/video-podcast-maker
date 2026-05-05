@@ -32,8 +32,25 @@ fi
 
 echo "$NOW" > "$STAMP"
 CURRENT=$(awk '/^version:/ {print $2; exit}' "${SKILL_DIR}/SKILL.md" | tr -d '"')
-LATEST=$(timeout 5 git -C "${SKILL_DIR}" ls-remote --tags origin 'v*' 2>/dev/null \
-  | awk '{print $2}' | sed 's|refs/tags/||' | sort -V | tail -1 | sed 's/^v//')
+
+# `timeout` is GNU coreutils — not present on macOS by default (it ships
+# `gtimeout` only when the user runs `brew install coreutils`). Without this
+# fallback the bare `timeout` call fails with "command not found", 2>/dev/null
+# swallows the error, and LATEST silently becomes empty → UP_TO_DATE for all
+# Mac users regardless of how far behind they are.
+fetch_latest() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 5 git -C "${SKILL_DIR}" ls-remote --tags --refs origin 'v*' 2>/dev/null
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout 5 git -C "${SKILL_DIR}" ls-remote --tags --refs origin 'v*' 2>/dev/null
+  else
+    git -C "${SKILL_DIR}" ls-remote --tags --refs origin 'v*' 2>/dev/null
+  fi
+}
+
+# `--refs` excludes peeled annotated-tag entries (refs/tags/vX.Y.Z^{}) which
+# would otherwise sort *after* the real tag and break the version comparison.
+LATEST=$(fetch_latest | awk '{print $2}' | sed 's|refs/tags/||' | sort -V | tail -1 | sed 's/^v//')
 
 if [ -z "$CURRENT" ] || [ -z "$LATEST" ] || [ "$CURRENT" = "$LATEST" ]; then
   echo "UP_TO_DATE"
